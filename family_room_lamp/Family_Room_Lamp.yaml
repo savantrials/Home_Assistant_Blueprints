@@ -1,1 +1,97 @@
+blueprint:
+  name: TV Off Turns Light Off After No Motion
+  description: >
+    When the selected TV entity changes from on to off, wait until the chosen
+    motion entity has been clear for the configured amount of time, then turn
+    off the selected light. The motion entity can be a binary sensor or a
+    compatible group entity that reports on/off.
+  domain: automation
+  input:
+    tv_entity:
+      name: TV entity
+      description: Entity that represents the TV power state and changes from on to off.
+      selector:
+        entity:
+    motion_entity:
+      name: Motion entity
+      description: >
+        Motion binary sensor or compatible group entity that is on when motion
+        is detected and off when motion stops.
+      selector:
+        entity:
+          filter:
+            domain:
+              - binary_sensor
+              - group
+    light_target:
+      name: Light
+      description: Light to turn off after the TV is off and motion has cleared.
+      selector:
+        target:
+          entity:
+            - domain: light
+    no_motion_wait:
+      name: No-motion delay
+      description: How long motion must stay clear before the light turns off.
+      default:
+        minutes: 5
+      selector:
+        duration:
 
+mode: single
+
+triggers:
+  - trigger: state
+    entity_id: !input tv_entity
+    from: "on"
+    to: "off"
+
+actions:
+  - alias: Wait for motion to clear or TV to turn back on
+    repeat:
+      sequence:
+        - alias: Wait for motion to stop (or TV to turn back on)
+          wait_for_trigger:
+            - trigger: state
+              entity_id: !input motion_entity
+              to: "off"
+            - trigger: state
+              entity_id: !input tv_entity
+              to: "on"
+
+        - if:
+            - condition: state
+              entity_id: !input tv_entity
+              state: "on"
+          then:
+            - stop: TV turned back on, aborting automation
+
+        - alias: Wait for no motion period (or motion to return, or TV to turn on)
+          wait_for_trigger:
+            - trigger: state
+              entity_id: !input motion_entity
+              to: "on"
+            - trigger: state
+              entity_id: !input tv_entity
+              to: "on"
+          timeout: !input no_motion_wait
+          continue_on_timeout: true
+
+      until:
+        - condition: state
+          entity_id: !input tv_entity
+          state: "on"
+        - condition: template
+          value_template: "{{ not wait.completed }}"
+
+  - alias: Turn off light if TV is still off and motion has cleared
+    if:
+      - condition: state
+        entity_id: !input tv_entity
+        state: "off"
+      - condition: state
+        entity_id: !input motion_entity
+        state: "off"
+    then:
+      - action: light.turn_off
+        target: !input light_target
