@@ -21,16 +21,20 @@ blueprint:
             entity:
               filter:
                 domain: media_player
-        apple_tv_on_state:
-          name: Apple TV on state
-          description: State treated as Apple TV on.
-          default: "on"
+        apple_tv_active_states:
+          name: Apple TV active states
+          description: >
+            Comma-separated states treated as Apple TV on. Check Developer
+            Tools > States if your Apple TV reports different states.
+          default: "on, idle, playing, paused, buffering"
           selector:
             text:
-        apple_tv_off_state:
-          name: Apple TV off state
-          description: State treated as Apple TV off.
-          default: "off"
+        apple_tv_off_states:
+          name: Apple TV off states
+          description: >
+            Comma-separated states treated as Apple TV off or sleeping. Check
+            Developer Tools > States if your Apple TV reports different states.
+          default: "off, standby"
           selector:
             text:
         denon_receiver:
@@ -91,22 +95,25 @@ mode: restart
 
 variables:
   evening_dim_time: !input evening_dim_time
+  apple_tv_active_states: !input apple_tv_active_states
+  apple_tv_off_states: !input apple_tv_off_states
 
 triggers:
   - trigger: state
-    id: apple_tv_on
+    id: apple_tv_state_changed
     entity_id: !input apple_tv
-    to: !input apple_tv_on_state
-  - trigger: state
-    id: apple_tv_off
-    entity_id: !input apple_tv
-    to: !input apple_tv_off_state
 
 actions:
   - choose:
       - conditions:
-          - condition: trigger
-            id: apple_tv_on
+          - condition: template
+            value_template: >
+              {% set active_states = apple_tv_active_states.split(',') | map('trim') | list %}
+              {% set off_states = apple_tv_off_states.split(',') | map('trim') | list %}
+              {{ trigger.from_state is not none
+                 and trigger.to_state is not none
+                 and trigger.from_state.state in off_states
+                 and trigger.to_state.state in active_states }}
         sequence:
           - alias: Turn on the Denon receiver
             action: homeassistant.turn_on
@@ -141,8 +148,11 @@ actions:
                       brightness_pct: !input after_dim_brightness
 
       - conditions:
-          - condition: trigger
-            id: apple_tv_off
+          - condition: template
+            value_template: >
+              {% set off_states = apple_tv_off_states.split(',') | map('trim') | list %}
+              {{ trigger.to_state is not none
+                 and trigger.to_state.state in off_states }}
         sequence:
           - alias: Turn off the Denon receiver
             action: homeassistant.turn_off
