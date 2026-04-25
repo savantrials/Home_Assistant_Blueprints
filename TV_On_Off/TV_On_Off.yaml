@@ -54,12 +54,29 @@ blueprint:
         lg_tv_wol_mac:
           name: LG TV Wake-on-LAN MAC address
           description: >
-            Optional. Enter the LG TV MAC address if the TV does not wake with
-            the normal media player turn-on action. Requires the Wake-on-LAN
+            Optional. Enter the LG TV MAC address to send a Wake-on-LAN packet
+            before the normal LG TV turn-on action. Requires the Wake-on-LAN
             integration to be enabled in Home Assistant.
           default: ""
           selector:
             text:
+        lg_tv_wol_broadcast_address:
+          name: LG TV Wake-on-LAN broadcast address
+          description: >
+            Optional. Use your subnet broadcast address, such as 192.168.1.255,
+            if the default broadcast does not wake the TV.
+          default: ""
+          selector:
+            text:
+        lg_tv_turn_on_actions:
+          name: Extra LG TV turn-on actions
+          description: >
+            Optional actions to run before the normal LG TV turn-on action.
+            Use this for a Wake-on-LAN helper, HDMI-CEC command, script, button,
+            or any other action needed to wake the TV.
+          default: []
+          selector:
+            action:
     lighting:
       name: Lighting
       icon: mdi:lightbulb
@@ -107,6 +124,7 @@ variables:
   apple_tv_active_states: !input apple_tv_active_states
   apple_tv_off_states: !input apple_tv_off_states
   lg_tv_wol_mac: !input lg_tv_wol_mac
+  lg_tv_wol_broadcast_address: !input lg_tv_wol_broadcast_address
 
 triggers:
   - trigger: state
@@ -130,14 +148,30 @@ actions:
             target: !input denon_receiver
           - if:
               - condition: template
-                value_template: "{{ lg_tv_wol_mac | trim | length > 0 }}"
+                value_template: >
+                  {{ lg_tv_wol_mac | trim | length > 0
+                     and lg_tv_wol_broadcast_address | trim | length == 0 }}
             then:
               - alias: Wake the LG TV with Wake-on-LAN
                 action: wake_on_lan.send_magic_packet
                 data:
-                  mac: "{{ lg_tv_wol_mac }}"
-              - delay:
-                  seconds: 3
+                  mac: "{{ lg_tv_wol_mac | trim }}"
+          - if:
+              - condition: template
+                value_template: >
+                  {{ lg_tv_wol_mac | trim | length > 0
+                     and lg_tv_wol_broadcast_address | trim | length > 0 }}
+            then:
+              - alias: Wake the LG TV with Wake-on-LAN using broadcast
+                action: wake_on_lan.send_magic_packet
+                data:
+                  mac: "{{ lg_tv_wol_mac | trim }}"
+                  broadcast_address: "{{ lg_tv_wol_broadcast_address | trim }}"
+          - alias: Run optional extra LG TV turn-on actions
+            choose: []
+            default: !input lg_tv_turn_on_actions
+          - delay:
+              seconds: 5
           - alias: Turn on the LG TV
             action: homeassistant.turn_on
             target: !input lg_tv
