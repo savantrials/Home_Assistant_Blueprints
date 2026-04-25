@@ -1,7 +1,7 @@
 blueprint:
   name: Apple TV Controls Denon, LG TV, And Evening Lights
   description: >
-    When the selected Apple TV turns on, turn on the Denon receiver and LG TV.
+    Wen the selected Apple TV turns on, turn on the Denon receiver and LG TV.
     After sunset, set the selected light to full brightness before the evening
     dim time and half brightness after it. When the Apple TV turns off, turn
     off the Denon receiver and LG TV.
