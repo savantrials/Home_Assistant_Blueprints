@@ -1,1 +1,152 @@
+blueprint:
+  name: Apple TV Controls Denon, LG TV, And Evening Lights
+  description: >
+    When the selected Apple TV turns on, turn on the Denon receiver and LG TV.
+    After sunset, set the selected light to full brightness before the evening
+    dim time and half brightness after it. When the Apple TV turns off, turn
+    off the Denon receiver and LG TV.
+  domain: automation
+  author: Codex
+  homeassistant:
+    min_version: 2026.4.0
+  input:
+    media:
+      name: Media entities
+      icon: mdi:television-play
+      input:
+        apple_tv:
+          name: Apple TV
+          description: Media player entity whose state triggers this automation.
+          selector:
+            entity:
+              filter:
+                domain: media_player
+        apple_tv_on_state:
+          name: Apple TV on state
+          description: State treated as Apple TV on.
+          default: "on"
+          selector:
+            text:
+        apple_tv_off_state:
+          name: Apple TV off state
+          description: State treated as Apple TV off.
+          default: "off"
+          selector:
+            text:
+        denon_receiver:
+          name: Denon receiver
+          description: Receiver entity to turn on and off with the Apple TV.
+          selector:
+            target:
+              entity:
+                domain: media_player
+        lg_tv:
+          name: LG TV
+          description: TV entity to turn on and off with the Apple TV.
+          selector:
+            target:
+              entity:
+                domain: media_player
+    lighting:
+      name: Lighting
+      icon: mdi:lightbulb
+      input:
+        light_target:
+          name: Light
+          description: Light to set after sunset when the Apple TV turns on.
+          selector:
+            target:
+              entity:
+                domain: light
+        evening_dim_time:
+          name: Evening dim time
+          description: Time after sunset when the light should use the lower brightness.
+          default: "20:30:00"
+          selector:
+            time:
+        before_dim_brightness:
+          name: Before dim brightness
+          description: Brightness used after sunset before the dim time.
+          default: 100
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+        after_dim_brightness:
+          name: After dim brightness
+          description: Brightness used after sunset after the dim time.
+          default: 50
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
 
+mode: restart
+
+variables:
+  evening_dim_time: !input evening_dim_time
+
+triggers:
+  - trigger: state
+    id: apple_tv_on
+    entity_id: !input apple_tv
+    to: !input apple_tv_on_state
+  - trigger: state
+    id: apple_tv_off
+    entity_id: !input apple_tv
+    to: !input apple_tv_off_state
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: apple_tv_on
+        sequence:
+          - alias: Turn on the Denon receiver
+            action: homeassistant.turn_on
+            target: !input denon_receiver
+          - alias: Turn on the LG TV
+            action: homeassistant.turn_on
+            target: !input lg_tv
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: sun.sun
+                    state: "below_horizon"
+                  - condition: time
+                    before: !input evening_dim_time
+                sequence:
+                  - alias: Set the light to the before-dim brightness after sunset
+                    action: light.turn_on
+                    target: !input light_target
+                    data:
+                      brightness_pct: !input before_dim_brightness
+              - conditions:
+                  - condition: state
+                    entity_id: sun.sun
+                    state: "below_horizon"
+                  - condition: template
+                    value_template: "{{ now() >= today_at(evening_dim_time) }}"
+                sequence:
+                  - alias: Set the light to the after-dim brightness after sunset
+                    action: light.turn_on
+                    target: !input light_target
+                    data:
+                      brightness_pct: !input after_dim_brightness
+
+      - conditions:
+          - condition: trigger
+            id: apple_tv_off
+        sequence:
+          - alias: Turn off the Denon receiver
+            action: homeassistant.turn_off
+            target: !input denon_receiver
+          - alias: Turn off the LG TV
+            action: homeassistant.turn_off
+            target: !input lg_tv
