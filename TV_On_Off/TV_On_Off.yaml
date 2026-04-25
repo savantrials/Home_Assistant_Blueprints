@@ -1,7 +1,7 @@
 blueprint:
   name: Apple TV Controls Denon, LG TV, And Evening Lights
   description: >
-    Wen the selected Apple TV turns on, turn on the Denon receiver and LG TV.
+    When the selected Apple TV turns on, turn on the Denon receiver and LG TV.
     After sunset, set the selected light to full brightness before the evening
     dim time and half brightness after it. When the Apple TV turns off, turn
     off the Denon receiver and LG TV.
@@ -51,6 +51,15 @@ blueprint:
             target:
               entity:
                 domain: media_player
+        lg_tv_wol_mac:
+          name: LG TV Wake-on-LAN MAC address
+          description: >
+            Optional. Enter the LG TV MAC address if the TV does not wake with
+            the normal media player turn-on action. Requires the Wake-on-LAN
+            integration to be enabled in Home Assistant.
+          default: ""
+          selector:
+            text:
     lighting:
       name: Lighting
       icon: mdi:lightbulb
@@ -97,6 +106,7 @@ variables:
   evening_dim_time: !input evening_dim_time
   apple_tv_active_states: !input apple_tv_active_states
   apple_tv_off_states: !input apple_tv_off_states
+  lg_tv_wol_mac: !input lg_tv_wol_mac
 
 triggers:
   - trigger: state
@@ -118,6 +128,16 @@ actions:
           - alias: Turn on the Denon receiver
             action: homeassistant.turn_on
             target: !input denon_receiver
+          - if:
+              - condition: template
+                value_template: "{{ lg_tv_wol_mac | trim | length > 0 }}"
+            then:
+              - alias: Wake the LG TV with Wake-on-LAN
+                action: wake_on_lan.send_magic_packet
+                data:
+                  mac: "{{ lg_tv_wol_mac }}"
+              - delay:
+                  seconds: 3
           - alias: Turn on the LG TV
             action: homeassistant.turn_on
             target: !input lg_tv
