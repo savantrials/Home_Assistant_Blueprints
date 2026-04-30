@@ -23,7 +23,7 @@ blueprint:
               device_class: presence
     blocking_sensor:
       name: Blocking motion sensor
-      description: If this sensor is on, the light will not turn on.
+      description: Used together with the blocking light to decide when to block.
       selector:
         entity:
           filter:
@@ -33,6 +33,15 @@ blueprint:
               device_class: occupancy
             - domain: binary_sensor
               device_class: presence
+    blocking_light:
+      name: Blocking light
+      description: >
+        If this light is on while the blocking motion sensor is active, the
+        automation will not run.
+      selector:
+        entity:
+          filter:
+            - domain: light
     light_target:
       name: Dimmable light
       description: Light to turn on when motion is detected.
@@ -113,6 +122,7 @@ mode: restart
 variables:
   motion_sensor_entity: !input motion_sensor
   blocking_sensor_entity: !input blocking_sensor
+  blocking_light_entity: !input blocking_light
   switch_target_entities: !input switch_target
   on_scene_target: !input on_scene
   off_scene_target: !input off_scene
@@ -125,9 +135,10 @@ triggers:
     to: "on"
 
 conditions:
-  - condition: state
-    entity_id: !input blocking_sensor
-    state: "off"
+  - condition: template
+    value_template: >
+      {{ not (is_state(blocking_sensor_entity, 'on')
+         and is_state(blocking_light_entity, 'on')) }}
   - condition: time
     after: !input start_time
     before: !input end_time
