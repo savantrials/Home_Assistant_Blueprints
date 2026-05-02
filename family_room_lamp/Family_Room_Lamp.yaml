@@ -1,7 +1,7 @@
 blueprint:
   name: TV Off Turns Light Off After No Motion
   description: >
-    Wen the selected TV entity changes from on to off, wait until the chosen
+    When the selected TV entity changes from on to off, wait until the chosen
     motion entity has been clear for the configured amount of time, then turn
     off the selected light. The motion entity can be a binary sensor or a
     compatible group entity that reports on/off.
@@ -37,6 +37,18 @@ blueprint:
         minutes: 5
       selector:
         duration:
+    tv_on_cancel_delay:
+      name: TV-on confirmation delay
+      description: >
+        How long the TV must stay on before canceling the light-off sequence.
+        This helps ignore brief state bounce-backs from some TV integrations.
+      default:
+        seconds: 10
+      selector:
+        duration:
+
+variables:
+  tv_power_entity: !input tv_entity
 
 mode: restart
 
@@ -65,14 +77,13 @@ actions:
                 - trigger: state
                   entity_id: !input tv_entity
                   to: "on"
-
+                  for: !input tv_on_cancel_delay
         - if:
             - condition: state
               entity_id: !input tv_entity
               state: "on"
           then:
             - stop: TV turned back on before the no-motion delay completed
-
         - alias: Restart the timer if motion returns or stop if the TV turns on
           wait_for_trigger:
             - trigger: state
@@ -81,16 +92,16 @@ actions:
             - trigger: state
               entity_id: !input tv_entity
               to: "on"
+              for: !input tv_on_cancel_delay
           timeout: !input no_motion_wait
           continue_on_timeout: true
       until:
         - condition: template
           value_template: "{{ not wait.completed }}"
 
-  - alias: Turn off the selected light
-    condition: state
-    entity_id: !input tv_entity
-    state: "off"
+  - alias: Only continue if the TV did not come back on
+    condition: template
+    value_template: "{{ not is_state(tv_power_entity, 'on') }}"
 
   - condition: state
     entity_id: !input motion_entity
