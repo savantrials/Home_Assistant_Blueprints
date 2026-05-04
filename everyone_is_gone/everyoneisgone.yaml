@@ -1,1 +1,399 @@
+blueprint:
+  name: Everyone Leaves Lights Climate And Security Notification
+  description: >
+    When all selected people have left home, turn off the selected lights.
+    Optionally set a thermostat to a heat or cool temperature. If selected
+    locks are not locked, or selected garage doors are not closed, send a
+    notification naming the affected entities to each included person's default
+    iPhone/mobile app notification action.
+  domain: automation
+  author: Codex
+  homeassistant:
+    min_version: 2026.4.0
+  input:
+    presence:
+      name: Presence
+      icon: mdi:account-group
+      description: >
+        Select the people who must all be away before this automation runs.
+        People in another zone still count as away from home.
+      input:
+        people:
+          name: People
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: person
+    lights:
+      name: Lights
+      icon: mdi:lightbulb-group
+      input:
+        light_target:
+          name: Lights to turn off
+          description: Defaults to all lights.
+          default:
+            entity_id: all
+          selector:
+            target:
+              entity:
+                - domain: light
+    thermostat:
+      name: Thermostat
+      icon: mdi:thermostat
+      collapsed: true
+      input:
+        set_thermostat:
+          name: Set thermostat when everyone leaves
+          default: false
+          selector:
+            boolean:
+        thermostat_target:
+          name: Thermostat
+          description: Required only when thermostat setting is enabled.
+          default: {}
+          selector:
+            target:
+              entity:
+                - domain: climate
+        thermostat_mode:
+          name: HVAC mode
+          default: heat
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - label: Heat
+                  value: heat
+                - label: Cool
+                  value: cool
+        thermostat_temperature:
+          name: Temperature
+          default: 65
+          selector:
+            number:
+              min: 40
+              max: 95
+              step: 0.5
+              mode: box
+              unit_of_measurement: degrees
+    security:
+      name: Security Checks
+      icon: mdi:shield-home
+      description: >
+        Select locks and garage door entities to check after everyone leaves.
+        A notification is sent only when something is not secure.
+      input:
+        locks_to_check:
+          name: Locks to check
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: lock
+        garage_doors_to_check:
+          name: Garage door covers to check
+          description: Cover entities should be `closed` to pass the check.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: cover
+                  device_class: garage
+        garage_door_sensors_to_check:
+          name: Garage door sensors to check
+          description: Binary sensors should be `off`/closed to pass the check.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: binary_sensor
+                  device_class: garage_door
+                - domain: binary_sensor
+                  device_class: door
+                - domain: binary_sensor
+                  device_class: opening
+    notifications:
+      name: Notifications
+      icon: mdi:bell-alert
+      collapsed: true
+      description: >
+        Home Assistant person entities do not expose a default notification
+        target. Enter each included person's default Home Assistant Companion
+        App notify action, such as `notify.mobile_app_ross_iphone`.
+      input:
+        person_1_notify_enabled:
+          name: Include person 1 in notifications
+          default: true
+          selector:
+            boolean:
+        person_1_notification_action:
+          name: Person 1 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action,
+            for example `notify.mobile_app_ross_iphone`. Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        person_2_notify_enabled:
+          name: Include person 2 in notifications
+          default: false
+          selector:
+            boolean:
+        person_2_notification_action:
+          name: Person 2 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action.
+            Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        person_3_notify_enabled:
+          name: Include person 3 in notifications
+          default: false
+          selector:
+            boolean:
+        person_3_notification_action:
+          name: Person 3 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action.
+            Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        person_4_notify_enabled:
+          name: Include person 4 in notifications
+          default: false
+          selector:
+            boolean:
+        person_4_notification_action:
+          name: Person 4 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action.
+            Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        person_5_notify_enabled:
+          name: Include person 5 in notifications
+          default: false
+          selector:
+            boolean:
+        person_5_notification_action:
+          name: Person 5 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action.
+            Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        person_6_notify_enabled:
+          name: Include person 6 in notifications
+          default: false
+          selector:
+            boolean:
+        person_6_notification_action:
+          name: Person 6 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action.
+            Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        person_7_notify_enabled:
+          name: Include person 7 in notifications
+          default: false
+          selector:
+            boolean:
+        person_7_notification_action:
+          name: Person 7 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action.
+            Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        person_8_notify_enabled:
+          name: Include person 8 in notifications
+          default: false
+          selector:
+            boolean:
+        person_8_notification_action:
+          name: Person 8 default iPhone notify action
+          description: >
+            Use this person's default Home Assistant Companion App notify action.
+            Leave blank if unused.
+          default: ""
+          selector:
+            text:
+        notification_title:
+          name: Notification title
+          default: Home left unsecured
+          selector:
+            text:
+        ios_interruption_level:
+          name: iPhone interruption level
+          description: >
+            `time-sensitive` can break through Focus modes when allowed by the
+            iPhone. Use `active` for normal notifications or `passive` for quiet
+            delivery.
+          default: time-sensitive
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - label: Time Sensitive
+                  value: time-sensitive
+                - label: Active
+                  value: active
+                - label: Passive
+                  value: passive
+        notification_tap_url:
+          name: Tap action URL
+          description: >
+            URL opened when the notification is tapped. Use a Home Assistant
+            path such as `/lovelace`, an entity URL such as `entityId:lock.front_door`,
+            or `noAction`.
+          default: /lovelace
+          selector:
+            text:
 
+variables:
+  person_entities: !input people
+  set_thermostat_enabled: !input set_thermostat
+  thermostat_target_config: !input thermostat_target
+  lock_entities: !input locks_to_check
+  garage_cover_entities: !input garage_doors_to_check
+  garage_sensor_entities: !input garage_door_sensors_to_check
+  notify_recipients:
+    - enabled: !input person_1_notify_enabled
+      action: !input person_1_notification_action
+    - enabled: !input person_2_notify_enabled
+      action: !input person_2_notification_action
+    - enabled: !input person_3_notify_enabled
+      action: !input person_3_notification_action
+    - enabled: !input person_4_notify_enabled
+      action: !input person_4_notification_action
+    - enabled: !input person_5_notify_enabled
+      action: !input person_5_notification_action
+    - enabled: !input person_6_notify_enabled
+      action: !input person_6_notification_action
+    - enabled: !input person_7_notify_enabled
+      action: !input person_7_notification_action
+    - enabled: !input person_8_notify_enabled
+      action: !input person_8_notification_action
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input people
+    from: "home"
+
+conditions:
+  - alias: The trigger must be a real departure from home
+    condition: template
+    value_template: >
+      {{ trigger.to_state is not none
+         and trigger.to_state.state not in ['home', 'unknown', 'unavailable'] }}
+  - alias: Everyone selected is away and available
+    condition: template
+    value_template: >
+      {% set people = expand(person_entities) %}
+      {{ people | count > 0
+         and (people | selectattr('state', 'eq', 'home') | list | count == 0)
+         and (people | selectattr('state', 'eq', 'unknown') | list | count == 0)
+         and (people | selectattr('state', 'eq', 'unavailable') | list | count == 0) }}
+
+actions:
+  - alias: Turn off the selected lights
+    action: light.turn_off
+    target: !input light_target
+
+  - if:
+      - alias: Thermostat setting is enabled and a thermostat target was selected
+        condition: template
+        value_template: >
+          {{ set_thermostat_enabled and thermostat_target_config | length > 0 }}
+    then:
+      - alias: Set the thermostat away temperature
+        action: climate.set_temperature
+        target: !input thermostat_target
+        data:
+          hvac_mode: !input thermostat_mode
+          temperature: !input thermostat_temperature
+
+  - if:
+      - alias: At least one selected lock or garage door is not secure
+        condition: template
+        value_template: >
+          {% set bad_locks = expand(lock_entities)
+             | rejectattr('state', 'eq', 'locked') | list %}
+          {% set bad_garage_covers = expand(garage_cover_entities)
+             | rejectattr('state', 'eq', 'closed') | list %}
+          {% set bad_garage_sensors = expand(garage_sensor_entities)
+             | rejectattr('state', 'eq', 'off') | list %}
+          {{ (bad_locks | count
+              + bad_garage_covers | count
+              + bad_garage_sensors | count) > 0 }}
+    then:
+      - alias: Build unsecured lock or garage door notification details
+        variables:
+          enabled_notification_actions: >
+            {% set ns = namespace(actions=[]) %}
+            {% for recipient in notify_recipients %}
+              {% set action_name = recipient.action | default('') | string | trim %}
+              {% if recipient.enabled and action_name | length > 0 %}
+                {% set ns.actions = ns.actions + [action_name] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.actions }}
+          security_notification_message: >
+            {% set bad_locks = expand(lock_entities)
+               | rejectattr('state', 'eq', 'locked') | list %}
+            {% set bad_garage_covers = expand(garage_cover_entities)
+               | rejectattr('state', 'eq', 'closed') | list %}
+            {% set bad_garage_sensors = expand(garage_sensor_entities)
+               | rejectattr('state', 'eq', 'off') | list %}
+            {% set bad_garages = bad_garage_covers + bad_garage_sensors %}
+            {% set ns = namespace(parts=[]) %}
+            {% if bad_locks | count > 0 %}
+              {% set ns.parts = ns.parts
+                 + ['Locks not locked: '
+                    ~ (bad_locks | map(attribute='name') | join(', '))] %}
+            {% endif %}
+            {% if bad_garages | count > 0 %}
+              {% set ns.parts = ns.parts
+                 + ['Garage doors not closed: '
+                    ~ (bad_garages | map(attribute='name') | join(', '))] %}
+            {% endif %}
+            {{ ns.parts | join('. ') }}
+
+      - if:
+          - alias: At least one included person has a notification action
+            condition: template
+            value_template: "{{ enabled_notification_actions | count > 0 }}"
+        then:
+          - alias: Send notification to each included person's default device
+            repeat:
+              for_each: "{{ enabled_notification_actions }}"
+              sequence:
+                - alias: Send iPhone-compatible mobile app notification
+                  continue_on_error: true
+                  action: "{{ repeat.item }}"
+                  data:
+                    title: !input notification_title
+                    message: "{{ security_notification_message }}"
+                    data:
+                      tag: home-left-unsecured
+                      group: home-security
+                      url: !input notification_tap_url
+                      push:
+                        interruption-level: !input ios_interruption_level
+                      presentation_options:
+                        - alert
+                        - sound
