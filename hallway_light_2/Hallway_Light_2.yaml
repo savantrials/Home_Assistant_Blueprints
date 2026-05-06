@@ -2,11 +2,11 @@ blueprint:
   name: Motion Light With Blocking Sensor And Time Window
   description: >
     Turn on a dimmable light and optional switches, scenes, and scripts when
-    motion is detected, but only if a second motion-style sensor is inactive
-    and the current time is inside the configured time window. Once both
-    motion sensors are clear, the configured delay begins and then the selected
-    entities are turned off. Scenes are stateless in Home Assistant, so an
-    optional off scene can be applied after the delay instead.
+    motion is detected, but only if the blocking motion sensor is inactive, the
+    blocking light is off, and the current time is inside the configured time
+    window. Once both motion sensors are clear, the configured delay begins and
+    then the selected entities are turned off. Scenes are stateless in Home
+    Assistant, so an optional off scene can be applied after the delay instead.
   domain: automation
   input:
     motion_sensor:
@@ -23,7 +23,7 @@ blueprint:
               device_class: presence
     blocking_sensor:
       name: Blocking motion sensor
-      description: Used together with the blocking light to decide when to block.
+      description: If this sensor is active, the automation will not run.
       selector:
         entity:
           filter:
@@ -35,9 +35,7 @@ blueprint:
               device_class: presence
     blocking_light:
       name: Blocking light
-      description: >
-        If this light is on while the blocking motion sensor is active, the
-        automation will not run.
+      description: If this light is on, the automation will not run.
       selector:
         entity:
           filter:
@@ -137,8 +135,8 @@ triggers:
 conditions:
   - condition: template
     value_template: >
-      {{ not (is_state(blocking_sensor_entity, 'on')
-         and is_state(blocking_light_entity, 'on')) }}
+      {{ not is_state(blocking_sensor_entity, 'on')
+         and not is_state(blocking_light_entity, 'on') }}
   - condition: time
     after: !input start_time
     before: !input end_time
