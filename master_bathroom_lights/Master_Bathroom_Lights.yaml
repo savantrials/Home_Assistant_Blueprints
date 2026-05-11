@@ -1,24 +1,44 @@
 blueprint:
-  name: Master Bathroom Lights
+  name: Time-of-Day Motion Lighting With Closed-Door Hold
   description: >
-    Turn on a bathroom light, dimmer, or switched light device from a door
-    contact sensor or a motion sensor. Door-only activation turns off as soon
-    as the door closes. Door plus motion waits until the door is closed and
-    motion has cleared, then applies the selected delay. Motion activation
-    while the door is closed waits for motion to clear, then applies its
-    selected delay.
+    Turn on different lights at different brightness levels for morning, day,
+    evening, and night when motion is detected, including optional on/off
+    lights or switches for each period. When motion clears, the lights turn
+    off after the configured delay unless the door contact is closed. If the
+    door is closed, the automation preserves the current on state and dimmer
+    setting until the door opens again or motion returns.
   domain: automation
   author: Codex
   homeassistant:
     min_version: "2026.5.1"
   input:
-    entities:
-      name: Entities
-      icon: mdi:devices
+    sensors:
+      name: Sensors
+      icon: mdi:motion-sensor
+      description: >
+        Select the motion entity or entities that should control the room, plus
+        the door contact sensor used to hold the lights on while the room is
+        occupied behind a closed door.
       input:
-        door_sensor:
+        motion_entities:
+          name: Motion sensor or motion group
+          description: >
+            Select one or more motion-style entities. This can be individual
+            binary sensors, a binary sensor group helper, or a compatible group
+            entity that reports `on` when motion is active and `off` when
+            motion is clear.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain:
+                  - binary_sensor
+                  - group
+        door_contact:
           name: Door contact sensor
-          description: Binary sensor where on means open and off means closed.
+          description: >
+            Contact sensor that is `off` when the door is closed and `on` when
+            the door is open.
           selector:
             entity:
               filter:
@@ -26,124 +46,407 @@ blueprint:
                   device_class: door
                 - domain: binary_sensor
                   device_class: opening
-                - domain: binary_sensor
-                  device_class: window
-        motion_sensor:
-          name: Motion sensor
-          description: Binary sensor where on means motion detected and off means clear.
+
+    timing:
+      name: Timings
+      icon: mdi:clock-outline
+      description: >
+        Enter the period start times in daily order. Night automatically covers
+        the time from the night start until the next morning start.
+      input:
+        no_motion_wait:
+          name: No-motion delay
+          description: >
+            How long motion must stay clear before the lights can turn off. If
+            the door closes during this delay, the lights stay on.
+          default:
+            minutes: 5
+          selector:
+            duration:
+        morning_start:
+          name: Morning start
+          default: "06:00:00"
+          selector:
+            time:
+        day_start:
+          name: Day start
+          default: "09:00:00"
+          selector:
+            time:
+        evening_start:
+          name: Evening start
+          default: "18:00:00"
+          selector:
+            time:
+        night_start:
+          name: Night start
+          default: "22:00:00"
+          selector:
+            time:
+
+    morning:
+      name: Morning
+      icon: mdi:weather-sunset-up
+      input:
+        morning_lights:
+          name: Morning dimmable lights
+          default: []
           selector:
             entity:
+              multiple: true
               filter:
-                - domain: binary_sensor
-                  device_class: motion
-                - domain: binary_sensor
-                  device_class: occupancy
-        light_device:
-          name: Light device
-          description: Select a device that exposes a light or switch entity.
+                domain: light
+        morning_non_dimmable_lights:
+          name: Morning on/off lights or switches
+          default: []
           selector:
-            device:
-              entity:
+            entity:
+              multiple: true
+              filter:
                 domain:
                   - light
                   - switch
-    timing:
-      name: Timing
-      icon: mdi:timer-outline
-      input:
-        door_motion_clear_delay:
-          name: Door plus motion keep-on time
-          description: Time to keep the light on after the door is closed and motion has stopped.
-          default:
-            hours: 0
-            minutes: 2
-            seconds: 0
+        morning_brightness:
+          name: Morning brightness
+          description: Brightness used for the morning dimmable lights.
+          default: 70
           selector:
-            duration:
-        motion_clear_delay:
-          name: Motion-only keep-on time
-          description: Time to keep the light on after motion has stopped when the door is closed.
-          default:
-            hours: 0
-            minutes: 2
-            seconds: 0
-          selector:
-            duration:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
 
-mode: restart
-max_exceeded: silent
+    day:
+      name: Day
+      icon: mdi:white-balance-sunny
+      input:
+        day_lights:
+          name: Day dimmable lights
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: light
+        day_non_dimmable_lights:
+          name: Day on/off lights or switches
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain:
+                  - light
+                  - switch
+        day_brightness:
+          name: Day brightness
+          description: Brightness used for the day dimmable lights.
+          default: 100
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+
+    evening:
+      name: Evening
+      icon: mdi:weather-sunset-down
+      input:
+        evening_lights:
+          name: Evening dimmable lights
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: light
+        evening_non_dimmable_lights:
+          name: Evening on/off lights or switches
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain:
+                  - light
+                  - switch
+        evening_brightness:
+          name: Evening brightness
+          description: Brightness used for the evening dimmable lights.
+          default: 45
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+
+    night:
+      name: Night
+      icon: mdi:weather-night
+      input:
+        night_lights:
+          name: Night dimmable lights
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: light
+        night_non_dimmable_lights:
+          name: Night on/off lights or switches
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain:
+                  - light
+                  - switch
+        night_brightness:
+          name: Night brightness
+          description: Brightness used for the night dimmable lights.
+          default: 20
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
 
 variables:
-  door_sensor_entity: !input door_sensor
-  motion_sensor_entity: !input motion_sensor
+  motion_entity_list: !input motion_entities
+  door_contact_entity: !input door_contact
+
+mode: single
+max_exceeded: silent
 
 triggers:
   - trigger: state
-    entity_id: !input door_sensor
+    entity_id: !input motion_entities
     from: "off"
     to: "on"
-    id: door_opened
-  - trigger: state
-    entity_id: !input motion_sensor
-    from: "off"
-    to: "on"
-    id: motion_detected
 
 actions:
-  - action: homeassistant.turn_on
-    target:
-      device_id: !input light_device
+  - variables:
+      active_dimmable_lights: []
+      active_onoff_entities: []
+      active_brightness: 0
+      preserve_active_state: false
 
   - choose:
       - conditions:
-          - condition: trigger
-            id: door_opened
-          - condition: template
-            value_template: "{{ is_state(motion_sensor_entity, 'off') }}"
+          - condition: time
+            after: !input morning_start
+            before: !input day_start
         sequence:
-          - wait_template: "{{ is_state(door_sensor_entity, 'off') or is_state(motion_sensor_entity, 'on') }}"
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-                sequence:
-                  - action: homeassistant.turn_off
-                    target:
-                      device_id: !input light_device
-            default:
-              - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-              - delay: !input door_motion_clear_delay
-              - action: homeassistant.turn_off
-                target:
-                  device_id: !input light_device
+          - variables:
+              active_dimmable_lights: !input morning_lights
+              active_onoff_entities: !input morning_non_dimmable_lights
+              active_brightness: !input morning_brightness
 
       - conditions:
-          - condition: trigger
-            id: door_opened
+          - condition: time
+            after: !input day_start
+            before: !input evening_start
         sequence:
-          - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-          - delay: !input door_motion_clear_delay
-          - action: homeassistant.turn_off
-            target:
-              device_id: !input light_device
+          - variables:
+              active_dimmable_lights: !input day_lights
+              active_onoff_entities: !input day_non_dimmable_lights
+              active_brightness: !input day_brightness
 
       - conditions:
-          - condition: trigger
-            id: motion_detected
-          - condition: state
-            entity_id: !input door_sensor
-            state: "off"
+          - condition: time
+            after: !input evening_start
+            before: !input night_start
         sequence:
-          - wait_template: "{{ is_state(motion_sensor_entity, 'off') }}"
-          - delay: !input motion_clear_delay
-          - action: homeassistant.turn_off
-            target:
-              device_id: !input light_device
+          - variables:
+              active_dimmable_lights: !input evening_lights
+              active_onoff_entities: !input evening_non_dimmable_lights
+              active_brightness: !input evening_brightness
 
     default:
-      - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-      - delay: !input door_motion_clear_delay
-      - action: homeassistant.turn_off
-        target:
-          device_id: !input light_device
+      - variables:
+          active_dimmable_lights: !input night_lights
+          active_onoff_entities: !input night_non_dimmable_lights
+          active_brightness: !input night_brightness
 
+  - variables:
+      active_entities: >
+        {% set ns = namespace(items=[]) %}
+        {% for bucket in [active_dimmable_lights, active_onoff_entities] %}
+          {% if bucket is string %}
+            {% set ns.items = ns.items + [bucket] %}
+          {% elif bucket is sequence %}
+            {% set ns.items = ns.items + bucket %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.items | unique | list }}
+      active_onoff_light_entities: >
+        {{ active_onoff_entities | select('match', '^light\\.') | list }}
+      active_switch_entities: >
+        {{ active_onoff_entities | select('match', '^switch\\.') | list }}
+
+  - condition: template
+    value_template: "{{ active_entities | count > 0 }}"
+
+  - if:
+      - condition: template
+        value_template: >
+          {{ is_state(door_contact_entity, 'off')
+             and expand(active_entities)
+             | selectattr('state', 'eq', 'on')
+             | list
+             | count > 0 }}
+    then:
+      - variables:
+          preserve_active_state: true
+
+  - variables:
+      tracked_light_entities: >
+        {% set ns = namespace(items=[]) %}
+        {% if not preserve_active_state %}
+          {% for bucket in [active_dimmable_lights, active_onoff_light_entities] %}
+            {% if bucket is string %}
+              {% set ns.items = ns.items + [bucket] %}
+            {% elif bucket is sequence %}
+              {% set ns.items = ns.items + bucket %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.items | unique | list }}
+      tracked_switch_entities: >
+        {{ active_switch_entities if not preserve_active_state else [] }}
+
+  - if:
+      - condition: template
+        value_template: >
+          {{ not preserve_active_state
+             and expand(active_dimmable_lights) | list | count > 0 }}
+    then:
+      - action: light.turn_on
+        target:
+          entity_id: "{{ active_dimmable_lights }}"
+        data:
+          brightness_pct: "{{ active_brightness }}"
+
+  - if:
+      - condition: template
+        value_template: >
+          {{ not preserve_active_state
+             and active_onoff_light_entities | count > 0 }}
+    then:
+      - action: light.turn_on
+        target:
+          entity_id: "{{ active_onoff_light_entities }}"
+
+  - if:
+      - condition: template
+        value_template: >
+          {{ not preserve_active_state
+             and active_switch_entities | count > 0 }}
+    then:
+      - action: switch.turn_on
+        target:
+          entity_id: "{{ active_switch_entities }}"
+
+  - condition: template
+    value_template: >
+      {{ tracked_light_entities | count > 0
+         or tracked_switch_entities | count > 0 }}
+
+  - alias: Wait until the tracked entities can be turned off
+    repeat:
+      sequence:
+        - variables:
+            keep_waiting: false
+
+        - alias: Wait for all motion entities to clear
+          wait_template: >
+            {{ expand(motion_entity_list)
+               | selectattr('state', 'eq', 'on')
+               | list
+               | count == 0 }}
+
+        - if:
+            - condition: state
+              entity_id: !input door_contact
+              state: "off"
+          then:
+            - alias: Hold the tracked entities while the door is closed
+              wait_for_trigger:
+                - trigger: state
+                  id: motion_returned_while_closed
+                  entity_id: !input motion_entities
+                  to: "on"
+                - trigger: state
+                  id: door_opened
+                  entity_id: !input door_contact
+                  to: "on"
+            - if:
+                - condition: template
+                  value_template: >
+                    {{ wait.trigger is not none
+                       and wait.trigger.id == 'motion_returned_while_closed' }}
+              then:
+                - variables:
+                    keep_waiting: true
+
+        - if:
+            - condition: template
+              value_template: "{{ not keep_waiting }}"
+          then:
+            - alias: Wait for motion to return, the door to close, or the off delay to finish
+              wait_for_trigger:
+                - trigger: state
+                  id: motion_returned
+                  entity_id: !input motion_entities
+                  to: "on"
+                - trigger: state
+                  id: door_closed
+                  entity_id: !input door_contact
+                  to: "off"
+              timeout: !input no_motion_wait
+              continue_on_timeout: true
+            - if:
+                - condition: template
+                  value_template: "{{ wait.completed }}"
+              then:
+                - variables:
+                    keep_waiting: true
+      until:
+        - condition: template
+          value_template: "{{ not keep_waiting }}"
+
+  - condition: template
+    value_template: >
+      {{ expand(motion_entity_list)
+         | selectattr('state', 'eq', 'on')
+         | list
+         | count == 0 }}
+
+  - condition: state
+    entity_id: !input door_contact
+    state: "on"
+
+  - if:
+      - condition: template
+        value_template: "{{ tracked_light_entities | count > 0 }}"
+    then:
+      - action: light.turn_off
+        target:
+          entity_id: "{{ tracked_light_entities }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ tracked_switch_entities | count > 0 }}"
+    then:
+      - action: switch.turn_off
+        target:
+          entity_id: "{{ tracked_switch_entities }}"
