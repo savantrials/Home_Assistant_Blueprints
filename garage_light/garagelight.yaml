@@ -1,5 +1,5 @@
 blueprint:
-  name: Door and Motion Light Control
+  name: Garage Light
   description: >
     Turn on a dimmer, light, or switched light device from a door contact sensor
     or a motion sensor. Door-only activation turns off as soon as the door
