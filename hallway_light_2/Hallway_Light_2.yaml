@@ -1,5 +1,5 @@
 blueprint:
-  name: Motion Light With Blocking Sensor And Time Window
+  name: Hallway Light 2
   description: >
     Turn on a dimmable light and optional switches, scenes, and scripts when
     motion is detected, but only if the blocking motion sensor is inactive, the
