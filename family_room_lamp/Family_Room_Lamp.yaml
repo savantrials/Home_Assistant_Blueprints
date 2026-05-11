@@ -1,5 +1,5 @@
 blueprint:
-  name: TV Off Turns Light Off After No Motion
+  name: Family Room Lamp
   description: >
     When the selected TV entity changes from on to off, wait until the chosen
     motion entity has been clear for the configured amount of time, then turn
@@ -51,6 +51,7 @@ variables:
   tv_power_entity: !input tv_entity
 
 mode: restart
+max_exceeded: silent
 
 triggers:
   - trigger: state
@@ -78,12 +79,14 @@ actions:
                   entity_id: !input tv_entity
                   to: "on"
                   for: !input tv_on_cancel_delay
+
         - if:
             - condition: state
               entity_id: !input tv_entity
               state: "on"
           then:
             - stop: TV turned back on before the no-motion delay completed
+
         - alias: Restart the timer if motion returns or stop if the TV turns on
           wait_for_trigger:
             - trigger: state
