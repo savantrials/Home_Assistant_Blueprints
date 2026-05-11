@@ -1,5 +1,5 @@
 blueprint:
-  name: Time-of-Day Motion Lighting With Closed-Door Hold
+  name: Master Bathroom Lights
   description: >
     Turn on different lights at different brightness levels for morning, day,
     evening, and night when motion is detected, including optional on/off
