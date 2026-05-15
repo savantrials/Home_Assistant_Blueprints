@@ -4,9 +4,9 @@ blueprint:
     Turn on different lights at different brightness levels for morning, day,
     evening, and night when motion is detected, including optional on/off
     lights or switches for each period. When motion clears, the lights turn
-    off after the configured delay unless the door contact is closed. If the
-    door is closed, the automation preserves the current on state and dimmer
-    setting until the door opens again or motion returns.
+    off after the configured delay unless a door hold condition is active. The
+    primary door sensor holds the lights on while it is closed, and an
+    optional second door sensor holds the lights on while it is open.
   domain: automation
   author: Codex
   homeassistant:
@@ -17,8 +17,8 @@ blueprint:
       icon: mdi:motion-sensor
       description: >
         Select the motion entity or entities that should control the room, plus
-        the door contact sensor used to hold the lights on while the room is
-        occupied behind a closed door.
+        the door contact sensors used to hold the lights on while the room is
+        occupied.
       input:
         motion_entities:
           name: Motion sensor or motion group
@@ -35,10 +35,23 @@ blueprint:
                   - binary_sensor
                   - group
         door_contact:
-          name: Door contact sensor
+          name: Primary door contact sensor
           description: >
             Contact sensor that is `off` when the door is closed and `on` when
             the door is open.
+          selector:
+            entity:
+              filter:
+                - domain: binary_sensor
+                  device_class: door
+                - domain: binary_sensor
+                  device_class: opening
+        second_door_contact:
+          name: Secondary door contact sensor
+          description: >
+            Optional second contact sensor. This sensor holds the lights on
+            while it is `on` and releases the hold when it is `off`.
+          default: ""
           selector:
             entity:
               filter:
@@ -58,7 +71,8 @@ blueprint:
           name: No-motion delay
           description: >
             How long motion must stay clear before the lights can turn off. If
-            the door closes during this delay, the lights stay on.
+            either door enters its hold state during this delay, the lights
+            stay on.
           default:
             minutes: 5
           selector:
@@ -223,6 +237,7 @@ blueprint:
 variables:
   motion_entity_list: !input motion_entities
   door_contact_entity: !input door_contact
+  second_door_contact_entity: !input second_door_contact
 
 mode: single
 max_exceeded: silent
@@ -299,7 +314,11 @@ actions:
   - if:
       - condition: template
         value_template: >
-          {{ is_state(door_contact_entity, 'off')
+          {{ (is_state(door_contact_entity, 'off')
+              or (
+                second_door_contact_entity not in ['', none]
+                and is_state(second_door_contact_entity, 'on')
+              ))
              and expand(active_entities)
              | selectattr('state', 'eq', 'on')
              | list
@@ -374,44 +393,44 @@ actions:
                | list
                | count == 0 }}
 
+        - alias: Wait while either door hold is active, unless motion returns
+          wait_template: >
+            {{ not is_state(door_contact_entity, 'off')
+               and not (
+                 second_door_contact_entity not in ['', none]
+                 and is_state(second_door_contact_entity, 'on')
+               )
+               or expand(motion_entity_list)
+               | selectattr('state', 'eq', 'on')
+               | list
+               | count > 0 }}
+
         - if:
-            - condition: state
-              entity_id: !input door_contact
-              state: "off"
+            - condition: template
+              value_template: >
+                {{ expand(motion_entity_list)
+                   | selectattr('state', 'eq', 'on')
+                   | list
+                   | count > 0 }}
           then:
-            - alias: Hold the tracked entities while the door is closed
-              wait_for_trigger:
-                - trigger: state
-                  id: motion_returned_while_closed
-                  entity_id: !input motion_entities
-                  to: "on"
-                - trigger: state
-                  id: door_opened
-                  entity_id: !input door_contact
-                  to: "on"
-            - if:
-                - condition: template
-                  value_template: >
-                    {{ wait.trigger is not none
-                       and wait.trigger.id == 'motion_returned_while_closed' }}
-              then:
-                - variables:
-                    keep_waiting: true
+            - variables:
+                keep_waiting: true
 
         - if:
             - condition: template
               value_template: "{{ not keep_waiting }}"
           then:
-            - alias: Wait for motion to return, the door to close, or the off delay to finish
-              wait_for_trigger:
-                - trigger: state
-                  id: motion_returned
-                  entity_id: !input motion_entities
-                  to: "on"
-                - trigger: state
-                  id: door_closed
-                  entity_id: !input door_contact
-                  to: "off"
+            - alias: Wait for motion or a door hold to return, or let the delay finish
+              wait_template: >
+                {{ expand(motion_entity_list)
+                   | selectattr('state', 'eq', 'on')
+                   | list
+                   | count > 0
+                   or is_state(door_contact_entity, 'off')
+                   or (
+                     second_door_contact_entity not in ['', none]
+                     and is_state(second_door_contact_entity, 'on')
+                   ) }}
               timeout: !input no_motion_wait
               continue_on_timeout: true
             - if:
@@ -431,9 +450,13 @@ actions:
          | list
          | count == 0 }}
 
-  - condition: state
-    entity_id: !input door_contact
-    state: "on"
+  - condition: template
+    value_template: >
+      {{ is_state(door_contact_entity, 'on')
+         and not (
+           second_door_contact_entity not in ['', none]
+           and is_state(second_door_contact_entity, 'on')
+         ) }}
 
   - if:
       - condition: template
