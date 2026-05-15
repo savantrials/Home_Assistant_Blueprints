@@ -2,14 +2,15 @@ blueprint:
   name: Garage Light
   description: >
     Turn on a dimmer, light, or switched light device from a door contact sensor
-    or a motion sensor. Door-only activation turns off as soon as the door
-    closes. Door plus motion waits until the door is closed and motion has
-    cleared, then applies the selected delay. Motion activation while the door is
-    closed waits for motion to clear, then applies its selected delay.
+    or a motion sensor. Door-only activation waits 10 seconds after the door
+    closes for motion to be detected before turning off. Door plus motion waits
+    until the door is closed and motion has cleared, then applies the selected
+    delay. Motion activation while the door is closed waits for motion to clear,
+    then applies its selected delay.
   domain: automation
   author: Codex
   homeassistant:
-    min_version: "2026.5.1"
+    min_version: "2026.5.0"
   input:
     entities:
       name: Entities
@@ -106,9 +107,24 @@ actions:
                   - condition: template
                     value_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
                 sequence:
-                  - action: homeassistant.turn_off
-                    target:
-                      device_id: !input light_device
+                  - wait_template: "{{ is_state(motion_sensor_entity, 'on') }}"
+                    timeout:
+                      seconds: 10
+                    continue_on_timeout: true
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ wait.completed }}"
+                        sequence:
+                          - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
+                          - delay: !input door_motion_clear_delay
+                          - action: homeassistant.turn_off
+                            target:
+                              device_id: !input light_device
+                    default:
+                      - action: homeassistant.turn_off
+                        target:
+                          device_id: !input light_device
             default:
               - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
               - delay: !input door_motion_clear_delay
