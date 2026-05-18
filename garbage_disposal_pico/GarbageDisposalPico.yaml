@@ -1,1 +1,61 @@
+blueprint:
+  name: Lutron Pico Outlet Control
+  description: >
+    Turn the selected outlet or switch on when the on button is pressed on a
+    Lutron Pico remote, and turn it off when the off button is pressed. This
+    uses the Lutron Caseta integration's Pico device triggers.
+  domain: automation
+  author: Codex
+  homeassistant:
+    min_version: "2026.5.2"
+  input:
+    pico_remote:
+      name: Lutron Pico remote
+      description: >
+        Select the Pico remote device from the Lutron Caseta integration. The
+        remote must expose on and off button triggers.
+      selector:
+        device:
+          filter:
+            - integration: lutron_caseta
+    outlet_target:
+      name: Outlet or switch
+      description: Outlet or switch entity to control from the Pico remote.
+      selector:
+        target:
+          entity:
+            - domain: switch
 
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - trigger: device
+    id: turn_on
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: "on"
+
+  - trigger: device
+    id: turn_off
+    device_id: !input pico_remote
+    domain: lutron_caseta
+    type: press
+    subtype: "off"
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: turn_on
+        sequence:
+          - action: homeassistant.turn_on
+            target: !input outlet_target
+
+      - conditions:
+          - condition: trigger
+            id: turn_off
+        sequence:
+          - action: homeassistant.turn_off
+            target: !input outlet_target
