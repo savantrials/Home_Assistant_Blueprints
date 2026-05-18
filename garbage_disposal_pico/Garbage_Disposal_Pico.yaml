@@ -1,5 +1,5 @@
 blueprint:
-  name: Lutron Pico Outlet Control
+  name: Garbage Disposal Pico
   description: >
     Turn the selected outlet or switch on when the on button is pressed on a
     Lutron Pico remote, and turn it off when the off button is pressed. This
