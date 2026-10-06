@@ -1,7 +1,8 @@
 blueprint:
   name: Family Room Lamp
   description: >
-    When the selected TV entity changes from on to off, wait until the chosen
+    When the selected TV entity leaves its active states (for example it goes
+    from on or playing to off, standby or unavailable), wait until the chosen
     motion entity has been clear for the configured amount of time, then turn
     off the selected light. The motion entity can be a binary sensor or a
     compatible group entity that reports on/off.
@@ -9,9 +10,33 @@ blueprint:
   input:
     tv_entity:
       name: TV entity
-      description: Entity that represents the TV power state and changes from on to off.
+      description: >
+        Entity that represents the TV power state, such as a media player,
+        switch or binary sensor.
       selector:
         entity:
+    tv_active_states:
+      name: TV active states
+      description: >
+        States that mean the TV is on. The light-off sequence starts when the
+        TV changes from one of these states to any other state (off, standby,
+        unavailable and so on), and stops if the TV returns to one of them.
+        Add a custom state if your TV reports something not listed here.
+      default:
+        - "on"
+        - playing
+        - paused
+        - buffering
+      selector:
+        select:
+          multiple: true
+          custom_value: true
+          options:
+            - "on"
+            - playing
+            - paused
+            - buffering
+            - idle
     motion_entity:
       name: Motion entity
       description: >
@@ -47,17 +72,14 @@ blueprint:
       selector:
         duration:
 
-variables:
-  tv_power_entity: !input tv_entity
-
 mode: restart
 max_exceeded: silent
 
 triggers:
   - trigger: state
     entity_id: !input tv_entity
-    from: "on"
-    to: "off"
+    from: !input tv_active_states
+    not_to: !input tv_active_states
 
 actions:
   - alias: Wait for the motion entity to remain clear while the TV stays off
@@ -77,13 +99,13 @@ actions:
                   to: "off"
                 - trigger: state
                   entity_id: !input tv_entity
-                  to: "on"
+                  to: !input tv_active_states
                   for: !input tv_on_cancel_delay
 
         - if:
             - condition: state
               entity_id: !input tv_entity
-              state: "on"
+              state: !input tv_active_states
           then:
             - stop: TV turned back on before the no-motion delay completed
 
@@ -94,7 +116,7 @@ actions:
               to: "on"
             - trigger: state
               entity_id: !input tv_entity
-              to: "on"
+              to: !input tv_active_states
               for: !input tv_on_cancel_delay
           timeout: !input no_motion_wait
           continue_on_timeout: true
@@ -103,8 +125,11 @@ actions:
           value_template: "{{ not wait.completed }}"
 
   - alias: Only continue if the TV did not come back on
-    condition: template
-    value_template: "{{ not is_state(tv_power_entity, 'on') }}"
+    condition: not
+    conditions:
+      - condition: state
+        entity_id: !input tv_entity
+        state: !input tv_active_states
 
   - condition: state
     entity_id: !input motion_entity
