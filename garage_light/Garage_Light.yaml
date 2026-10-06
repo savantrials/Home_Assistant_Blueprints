@@ -94,54 +94,25 @@ actions:
     target:
       device_id: !input light_device
 
+  # mode: restart means any new motion (off -> on) cancels this run and starts
+  # a fresh one with the motion_detected trigger, so no branch below needs to
+  # watch for motion coming back on.
   - choose:
+      # Door opened with no motion: turn off 10 seconds after the door closes.
       - conditions:
           - condition: trigger
             id: door_opened
           - condition: template
             value_template: "{{ is_state(motion_sensor_entity, 'off') }}"
         sequence:
-          - wait_template: "{{ is_state(door_sensor_entity, 'off') or is_state(motion_sensor_entity, 'on') }}"
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-                sequence:
-                  - wait_template: "{{ is_state(motion_sensor_entity, 'on') }}"
-                    timeout:
-                      seconds: 10
-                    continue_on_timeout: true
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ wait.completed }}"
-                        sequence:
-                          - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-                          - delay: !input door_motion_clear_delay
-                          - action: homeassistant.turn_off
-                            target:
-                              device_id: !input light_device
-                    default:
-                      - action: homeassistant.turn_off
-                        target:
-                          device_id: !input light_device
-            default:
-              - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-              - delay: !input door_motion_clear_delay
-              - action: homeassistant.turn_off
-                target:
-                  device_id: !input light_device
-
-      - conditions:
-          - condition: trigger
-            id: door_opened
-        sequence:
-          - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
-          - delay: !input door_motion_clear_delay
+          - wait_template: "{{ is_state(door_sensor_entity, 'off') }}"
+          - delay:
+              seconds: 10
           - action: homeassistant.turn_off
             target:
               device_id: !input light_device
 
+      # Motion with the door closed: turn off after motion clears plus its delay.
       - conditions:
           - condition: trigger
             id: motion_detected
@@ -155,6 +126,7 @@ actions:
             target:
               device_id: !input light_device
 
+    # Door plus motion: wait for the door to close and motion to clear.
     default:
       - wait_template: "{{ is_state(door_sensor_entity, 'off') and is_state(motion_sensor_entity, 'off') }}"
       - delay: !input door_motion_clear_delay
