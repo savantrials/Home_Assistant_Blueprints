@@ -5,8 +5,11 @@ blueprint:
     motion is detected, but only if the blocking motion sensor is inactive, the
     blocking light is off, and the current time is inside the configured time
     window. Once both motion sensors are clear, the configured delay begins and
-    then the selected entities are turned off. Scenes are stateless in Home
-    Assistant, so an optional off scene can be applied after the delay instead.
+    then the selected entities are turned off. If the blocking light is turned
+    on while the dimmable light is on, the dimmable light turns off after the
+    hand-off delay, and the blocking light then follows the same off delay.
+    Scenes are stateless in Home Assistant, so an optional off scene can be
+    applied after the delay instead.
   domain: automation
   input:
     motion_sensor:
@@ -35,7 +38,10 @@ blueprint:
               device_class: presence
     blocking_light:
       name: Blocking light
-      description: If this light is on, the automation will not run.
+      description: >
+        If this light is on, the automation will not run. If it is turned on
+        while the dimmable light is on, the dimmable light turns off after the
+        hand-off delay and this light turns off after the off delay.
       selector:
         entity:
           filter:
@@ -114,6 +120,15 @@ blueprint:
         minutes: 5
       selector:
         duration:
+    handoff_delay:
+      name: Blocking light hand-off delay
+      description: >
+        How long to wait after the blocking light turns on before turning off
+        the dimmable light.
+      default:
+        seconds: 5
+      selector:
+        duration:
 
 mode: restart
 
@@ -121,6 +136,7 @@ variables:
   motion_sensor_entity: !input motion_sensor
   blocking_sensor_entity: !input blocking_sensor
   blocking_light_entity: !input blocking_light
+  light_target_config: !input light_target
   switch_target_entities: !input switch_target
   on_scene_target: !input on_scene
   off_scene_target: !input off_scene
@@ -131,44 +147,91 @@ triggers:
     entity_id: !input motion_sensor
     from: "off"
     to: "on"
+    id: motion
+  - trigger: state
+    entity_id: !input blocking_light
+    from: "off"
+    to: "on"
+    id: blocking_light_on
 
 conditions:
-  - condition: template
-    value_template: >
-      {{ not is_state(blocking_sensor_entity, 'on')
-         and not is_state(blocking_light_entity, 'on') }}
-  - condition: time
-    after: !input start_time
-    before: !input end_time
+  - condition: or
+    conditions:
+      - alias: Motion in the hallway while nothing is blocking it
+        condition: and
+        conditions:
+          - condition: trigger
+            id: motion
+          - condition: template
+            value_template: >
+              {{ not is_state(blocking_sensor_entity, 'on')
+                 and not is_state(blocking_light_entity, 'on') }}
+          - condition: time
+            after: !input start_time
+            before: !input end_time
+      - alias: Blocking light turned on while the dimmable light is on
+        condition: and
+        conditions:
+          - condition: trigger
+            id: blocking_light_on
+          - condition: template
+            value_template: >
+              {% set cfg = light_target_config %}
+              {% set ns = namespace(ids=[]) %}
+              {% for key in ['entity_id', 'device_id', 'area_id'] %}
+                {% set v = cfg.get(key, []) if cfg is mapping else [] %}
+                {% set v = [v] if v is string else v %}
+                {% for item in v %}
+                  {% if key == 'entity_id' %}
+                    {% set ns.ids = ns.ids + [item] %}
+                  {% elif key == 'device_id' %}
+                    {% set ns.ids = ns.ids + device_entities(item) %}
+                  {% else %}
+                    {% set ns.ids = ns.ids + area_entities(item) %}
+                  {% endif %}
+                {% endfor %}
+              {% endfor %}
+              {{ ns.ids | select('match', 'light\.') | select('is_state', 'on')
+                 | list | count > 0 }}
 
 actions:
-  - alias: Turn on the selected light at the configured brightness
-    action: light.turn_on
-    target: !input light_target
-    data:
-      brightness_pct: !input brightness_pct
   - if:
-      - condition: template
-        value_template: "{{ switch_target_entities | length > 0 }}"
+      - condition: trigger
+        id: motion
     then:
-      - alias: Turn on optional switches
-        action: switch.turn_on
-        target: !input switch_target
-  - if:
-      - condition: template
-        value_template: "{{ on_scene_target | length > 0 }}"
-    then:
-      - alias: Activate optional on scene
-        action: scene.turn_on
-        target: !input on_scene
-  - if:
-      - condition: template
-        value_template: "{{ script_target_entities | count > 0 }}"
-    then:
-      - alias: Start optional scripts
-        action: script.turn_on
-        target:
-          entity_id: !input script_entities
+      - alias: Turn on the selected light at the configured brightness
+        action: light.turn_on
+        target: !input light_target
+        data:
+          brightness_pct: !input brightness_pct
+      - if:
+          - condition: template
+            value_template: "{{ switch_target_entities | length > 0 }}"
+        then:
+          - alias: Turn on optional switches
+            action: switch.turn_on
+            target: !input switch_target
+      - if:
+          - condition: template
+            value_template: "{{ on_scene_target | length > 0 }}"
+        then:
+          - alias: Activate optional on scene
+            action: scene.turn_on
+            target: !input on_scene
+      - if:
+          - condition: template
+            value_template: "{{ script_target_entities | count > 0 }}"
+        then:
+          - alias: Start optional scripts
+            action: script.turn_on
+            target:
+              entity_id: !input script_entities
+    else:
+      - alias: Give the blocking light the hand-off delay
+        delay: !input handoff_delay
+      - alias: Turn off the dimmable light now that the blocking light is on
+        action: light.turn_off
+        target: !input light_target
   - alias: Wait until both motion sensors are clear for the full off delay
     repeat:
       sequence:
@@ -186,6 +249,14 @@ actions:
   - alias: Turn off the selected light
     action: light.turn_off
     target: !input light_target
+  - if:
+      - condition: trigger
+        id: blocking_light_on
+    then:
+      - alias: Turn off the blocking light after the off delay
+        action: light.turn_off
+        target:
+          entity_id: !input blocking_light
   - if:
       - condition: template
         value_template: "{{ switch_target_entities | length > 0 }}"
